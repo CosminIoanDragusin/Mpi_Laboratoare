@@ -1,0 +1,31 @@
+1)def nr lini a,nr lini b,nr coloane a,nr coloane b
+2)generati random elem matrice a si b
+3)afisati matricile
+4)nr_lini_proces=nr_lini_a/nr_process
+5)for(i=1;i<nr_process-1;i++)
+  {offseet=offseet+nr_lini_process
+  mpi_send(adresa offset)
+  ---------(adresa nr_lini_process)
+  ---------(trimit elem din a)
+  ---------(trimit elem din b)
+  }
+  a[offseet][0]; nr lini din process * nr_col A
+  det nr de elem procesate
+  trimiteti spre procesare ult proces
+  calculati pentru procesul 0 care face si el procesare
+  
+  slave 
+  mpi_recv(primeste adresa de offseett)
+  ----------nr de lini
+  ----------elemente a
+  ----------elemente b
+  
+  calculeaza produs matrici
+  trimiteti rezultatul partial catre root
+  infomati root catre ekem ce-i procesat
+  recordtimestop
+  afisare matrice c
+  
+  
+  
+

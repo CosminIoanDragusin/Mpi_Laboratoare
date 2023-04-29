@@ -1,0 +1,128 @@
+#include <mpi.h>
+#include <stdio.h>
+#include <iostream>
+#include <time.h>
+#include <iomanip>
+#include <fstream>
+
+#define n 11000
+
+int v[n], vbuf[n], vresult[n];
+
+using namespace std;
+
+void quickSort(int v[], int start, int end) {
+	if (start < end) {
+		int m = (start + end) / 2;
+		int auxiliar = v[start];
+		v[start] = v[m];
+		v[m] = auxiliar;
+
+		int i = start;
+		int j = end;
+		int d = 0;
+
+		while (i < j) {
+			if (v[i] > v[j]) {
+				auxiliar = v[i];
+				v[i] = v[j];
+				v[j] = auxiliar;
+				d = 1 - d;
+			}
+			i += d;
+			j -= 1 - d;
+		}
+		quickSort(v, start, i - 1);
+		quickSort(v, i + 1, end);
+	}
+}
+
+int main(int argc, char** argv) {
+
+	ofstream fout("out.txt");
+	ifstream fin;
+	fin.open("vectorelem.txt");
+	while (fin.is_open())
+	{
+		for (int i = 0; i < n; i++)
+		{
+			fin >> v[i];
+		}
+		break;
+	}
+	fin.close();
+
+	//calcul timp executie secvential
+	/* clock_t t;
+	 t = clock();
+	 quickSort(v, 0, n - 1);
+	 t = clock() - t;
+	 double time_taken = ((double)t)/CLOCKS_PER_SEC;
+	 cout << "Sortarea vectorului in mod secvential a durat : " << fixed << time_taken << setprecision(5);
+	 for (int i = 0; i < n; i++)
+	 {
+		 fout << v[i] << " ";
+	 }
+	fout << endl;
+	printf("\n s-a scris vectorul sortat in fisier \n");
+	fout.close();
+	*/
+
+	int rank, size,
+		elements_per_process,
+		index, indexbuf;
+	double startTime, endTime;
+
+	MPI_Status status;
+	MPI_Init(&argc, &argv);
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	MPI_Comm_size(MPI_COMM_WORLD, &size);
+	elements_per_process = n / size;
+
+	startTime = MPI_Wtime();
+	if (rank == 0)
+	{
+		int i;
+		for (i = 1; i < size - 1; i++)
+		{
+			index = (i - 1) * elements_per_process;
+			MPI_Send(&index, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+			MPI_Send(&v[index], elements_per_process, MPI_INT, i, 0, MPI_COMM_WORLD);
+		}
+		index = i * elements_per_process;
+		int elements_left = n - index;
+
+		MPI_Send(&elements_left, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+		MPI_Send(&v[index], elements_left, MPI_INT, i, 0, MPI_COMM_WORLD);
+	}
+	else if (rank != 0)
+	{
+		MPI_Recv(&indexbuf, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+		MPI_Recv(&vbuf[indexbuf], elements_per_process, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+		quickSort(vbuf, indexbuf, indexbuf + elements_per_process);
+
+		MPI_Send(&indexbuf, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
+		MPI_Send(&vbuf, elements_per_process, MPI_INT, 0, 0, MPI_COMM_WORLD);
+	}
+	if (rank == 0)
+	{
+		for (int i = 1; i < size - 1; i++)
+		{
+			MPI_Recv(&indexbuf, 1, MPI_INT, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+			MPI_Recv(&vbuf[indexbuf], elements_per_process, MPI_INT, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+		}
+
+		for (int i = 0; i < n; i++)
+		{
+			fout << vbuf[i] << " ";
+		}
+		fout << endl;
+		printf("s-a scris vectorul sortat in fisier \n");
+		endTime = MPI_Wtime();
+		printf("Timpul de executie este %f", endTime - startTime);
+	}
+	fout.close();
+
+	MPI_Finalize();
+}

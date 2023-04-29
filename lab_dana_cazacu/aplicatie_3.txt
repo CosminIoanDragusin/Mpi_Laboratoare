@@ -1,0 +1,119 @@
+#include <mpi.h>
+#include <iostream>
+#include <fstream>
+#include <time.h>
+#include <iomanip>
+
+#define n 11000
+
+int v[n], vbuf[n];
+
+using namespace std;
+
+int main(int argc, char** argv)
+{
+    int x;
+
+    int rank, size,
+        elements_per_process;
+    double startTime, endTime;
+    int index, indexbuf;
+
+    MPI_Status status;
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    elements_per_process = n / size;
+
+    ifstream fin;
+    fin.open("vectorelem.txt");
+    while (fin.is_open())
+    {
+        for (int i = 0; i < n; i++)
+        {
+            fin >> v[i];
+        }
+        break;
+    }
+    fin.close();
+    // printf("Dati un numar de la tastatura x=");
+    //scanf_s("%d", &x);
+    x = 24;
+    int cx = 0;
+    //calcul timp secvential
+    /*clock_t t;
+    t = clock();
+    for (int i = 0; i < n; i++)
+    {
+        if (v[i] == x)
+        {
+            cout << "Numarul " << x << " a aparut pe pozitia " << i << endl;
+            cx++;
+        }
+    }
+    cout << "Numarul " << x << " apare in vector de " << cx << " ori"<<endl;
+    t = clock() - t;
+    double time_taken = ((double)t) / CLOCKS_PER_SEC;
+    cout << "Cautarea in vector in mod secvential a durat : " << fixed << time_taken << setprecision(5);
+    */
+
+    startTime = MPI_Wtime();
+    if (rank == 0)
+    {
+        int i;
+        if (size > 1)
+        {
+            for (i = 1; i < size-1; i++)
+            {
+                index = i * elements_per_process;
+                MPI_Send(&index, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+                MPI_Send(&v[index], elements_per_process, MPI_INT, i, 0, MPI_COMM_WORLD);
+            }
+            index = i * elements_per_process;
+            int elements_left = n - index;
+
+            MPI_Send(&elements_left, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+            MPI_Send(&v[index], elements_left, MPI_INT, i, 0, MPI_COMM_WORLD);
+        }
+        
+        for (i = 0; i < elements_per_process; i++)
+        {
+            if (v[i] == x)
+            {
+                printf("Numarul %d apare pe pozitia %d \n", x, i);
+                cx++;
+            }
+        }
+
+        int tmp;
+        for (int i = 1; i < size; i++)
+        {
+            MPI_Recv(&tmp, 1, MPI_INT, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &status);
+            int sender = status.MPI_SOURCE;
+
+            cx += tmp;
+        }
+        //printf("Numarul %d apare de %d ori in vector\n", x, cx);
+        endTime = MPI_Wtime();
+        printf("Timpul de executie este %f\n", endTime - startTime);
+    }
+    else
+    {
+        MPI_Recv(&indexbuf, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(&vbuf[indexbuf], elements_per_process, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        int partial_cx = 0;
+        for (int i = indexbuf; i < indexbuf + elements_per_process; i++)
+        {
+            if (vbuf[i] == x)
+            {
+               printf("Numarul %d apare pe pozitia %d \n", x, indexbuf + i);
+                partial_cx++;
+            }
+        }
+        MPI_Send(&partial_cx, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
+    }
+    printf("Numarul %d apare de %d ori in vector\n", x, cx);
+    // Finalize the MPI environment.
+    MPI_Finalize();
+    //return 0;
+}

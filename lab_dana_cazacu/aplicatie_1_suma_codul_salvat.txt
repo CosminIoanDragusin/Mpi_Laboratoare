@@ -1,0 +1,157 @@
+// ConsoleApplication1.cpp : This file contains the 'main' function. Program execution begins and ends there.
+//
+
+#include<iostream>
+#include <fstream>
+#include <mpi.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string>
+
+using namespace std;
+
+// size of array
+#define n 4000
+
+int v[4000];
+
+// Temporary array for slave process
+ int v2[12000];
+
+int main(int argc, char* argv[])
+{
+    // random values for the elements of the vector 
+       ofstream fout;
+          fout.open("vectorelem.txt");
+          for (int i = 0; i < 4000; i++)
+          {
+              int randomNr = rand() % 2 + 1;
+              fout << randomNr << endl;
+          }
+          fout.close();
+      
+
+    int rank, size,
+        elements_per_process,
+        n_elements_recieved;
+    double startTime, endTime;
+
+    MPI_Status status;
+    // Creation of parallel processes
+    MPI_Init(&argc, &argv);
+    // find out process ID,
+    // and how many processes were started
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    std::ifstream fin;
+    fin.open("vectorelem.txt");
+    while (fin.is_open())
+    {
+        for (int i = 0; i < n; i++)
+        {
+            fin >> v[i];
+        }
+        break;
+    }
+    fin.close();
+    
+    //calcul timp de executie secvential
+       //int sum1 = 0;
+       //int prod1 = 1;
+       //   double startwtimeSecv, endwtimeSecv;
+       //   startwtimeSecv = MPI_Wtime();
+       //   for (int i = 0; i < 4000; i++)
+       //   {
+       //     sum1 += v[i];
+       //     //prod1 = prod1* v[i];
+       //    // cout << "produsul = " << prod1 << endl;
+       //   }
+       //   cout << "suma = " << sum1 << endl;
+       //  // cout << "produsul = " << prod1 << endl;
+       //   endwtimeSecv = MPI_Wtime();
+       //   printf("timpul de executie secvential = %f", endwtimeSecv - startwtimeSecv);
+        
+
+    //paralel
+    // master process
+    startTime = MPI_Wtime();
+    if (rank == 0)
+    {
+        cout << "Using " << size << " processes..." << endl << endl;
+        int index, i;
+        elements_per_process = n / size;
+        // check if more than 1 processes are run
+        if (size > 1)
+        {
+            // distributes the portion of array
+                // to child processes to calculate
+                // their partial sums
+            for (i = 1; i < size - 1; i++)
+            {
+                index = i * elements_per_process;
+
+                MPI_Send(&elements_per_process, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+                MPI_Send(&v[index], elements_per_process, MPI_INT, i, 0, MPI_COMM_WORLD);
+            }
+            // last process adds remaining elements
+            index = i * elements_per_process;
+            int elements_left = n - index;
+
+            MPI_Send(&elements_left, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+            MPI_Send(&v[index], elements_left, MPI_INT, i, 0, MPI_COMM_WORLD);
+        }
+        // master process add its own sub array
+        int sum = 0;
+        //int prod = 1;
+        for (i = 0; i < elements_per_process; i++)
+            sum += v[i];
+           // prod = prod * v[i];
+        // collects partial sums from other processes
+
+        printf("%d: ", rank);
+        cout << "Done... Now collecting output from others" << endl;
+      //  cout << "Sum found by proc " << rank << " = " << sum << endl;
+
+        int tmp;
+        for (i = 1; i < size; i++)
+        {
+            MPI_Recv(&tmp, 1, MPI_INT, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &status);
+            int sender = status.MPI_SOURCE;
+           // printf("Produsul elementelor vectorului este : %d\n", prod);
+           
+            sum += tmp;
+           
+           // prod = prod * tmp;
+           // printf("Produsul elementelor vectorului este : %d\n", prod);
+        }
+
+       printf("Suma elementelor vectorului este : %d\n", sum);
+        //printf("Produsul elementelor vectorului este : %d\n", prod);
+        endTime = MPI_Wtime();
+        printf("Timpul de executie este %f", endTime - startTime);
+    }
+    else
+    {
+        // slave processes
+        MPI_Recv(&n_elements_recieved, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &status);
+        MPI_Recv(&v2, n_elements_recieved, MPI_INT, 0, 0, MPI_COMM_WORLD, &status);
+
+        int partial_sum = 0;
+        //long double partial_prod = 1;
+        for (int i = 0; i < n_elements_recieved; i++)
+        
+            partial_sum += v2[i];
+            cout << "Sum found by proc " << rank << " = " << partial_sum << endl;
+        
+            //partial_prod = partial_prod * v2[i];
+
+        MPI_Send(&partial_sum, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
+        //MPI_Send(&partial_prod, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
+    }
+    
+    // cleans up all MPI state before exit of process
+    MPI_Finalize();
+    
+    return 0;
+}

@@ -1,0 +1,14 @@
+ 2  3  9  1  0  4  5
+ 
+- alegem de exemplu pivot
+impartim in 2 ,elemente mai mari decat pivot si elemente mai mici decat pivot
+ 2  3  1  0  4                5  9
+
+ si se continua in acest sens
+
+alta ideea ar fi:
+
+luam vectorul il impartim in bucati
+2  3  9  1  0  4  5
+se face sortarea
+si se imparte
